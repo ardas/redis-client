@@ -9,4 +9,4 @@ If application is not Web then will create default ObjectMapper.
 | Property  | Default | Note |
 | ------------- | ------------- | ------------- | 
 | redis.client.timeout  | 1 | Count seconds for waiting of response. |
-| redis.client.thread-pool  | 5 | The number of threads in the pool  |
+| redis.client.thread-pool  | 5 | The number of threads in the pool.  |
