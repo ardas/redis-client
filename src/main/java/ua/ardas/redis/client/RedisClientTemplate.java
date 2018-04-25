@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.apachecommons.CommonsLog;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
+import org.springframework.data.redis.RedisSystemException;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
@@ -82,13 +83,18 @@ public class RedisClientTemplate<R, V> extends StringRedisTemplate implements Cl
             activeListeners.get(listenChannel).cancel(true);
         }
         Future<Object> future = executorService.submit(() -> {
-            do {
-                RedisRequest<V> message = null;
+            while (Thread.currentThread().isAlive()) {
+                RedisRequest<V> message;
                 try {
                     message = waitMessage(listenChannel, type);
-                    if (message.isExpired()) {
-                        continue;
-                    }
+                } catch (RedisSystemException e) {
+                    log.error("Something wrong!", e);
+                    continue;
+                }
+                if (message.isExpired()) {
+                    continue;
+                }
+                try {
                     T result = callback.apply(message.getBody());
                     if (message.isExpired()) {
                         continue;
@@ -98,12 +104,13 @@ public class RedisClientTemplate<R, V> extends StringRedisTemplate implements Cl
                     log.error("Something wrong!", e);
                     sendRequestException(channel, message, ResponseKey.INTERNAL_ERROR, e);
                 }
-            } while (true);
+            }
+            return null;
         });
         activeListeners.put(listenChannel, future);
     }
 
-    private <T> void sendRequestException(String channel, RedisRequest<V> message, ResponseKey key, Exception e) throws JsonProcessingException {
+    private <T> void sendRequestException(String channel, RedisRequest<V> message, ResponseKey key, Exception e) {
         String responseChannel = makeResponseChannel(channel, message);
 
         if (StringUtils.isNotBlank(responseChannel)) {
@@ -111,7 +118,11 @@ public class RedisClientTemplate<R, V> extends StringRedisTemplate implements Cl
                     .key(key)
                     .message(e.getMessage())
                     .build();
-            opsForList().rightPush(responseChannel, objectMapper.writeValueAsString(response));
+            try {
+                opsForList().rightPush(responseChannel, objectMapper.writeValueAsString(response));
+            } catch (JsonProcessingException exception) {
+                log.error("Can't convert response as JSON!", exception);
+            }
         }
     }
 
@@ -123,6 +134,9 @@ public class RedisClientTemplate<R, V> extends StringRedisTemplate implements Cl
     }
 
     private RedisRequest<V> waitMessage(String channel, Class<V> type) throws IOException {
+        while (getConnectionFactory().getConnection().isClosed()) {
+            sleep(1000);
+        }
         String body = opsForList().leftPop(channel, 0, TimeUnit.MILLISECONDS);
         log.info(String.format("Receive message: channel = %s   body = %s", channel, body));
         JavaType javaType = objectMapper.getTypeFactory().constructParametricType(RedisRequest.class, type);
@@ -152,6 +166,14 @@ public class RedisClientTemplate<R, V> extends StringRedisTemplate implements Cl
                 .map(RedisRequest::getRequestId)
                 .map(item -> String.format(RESPONSE_TEMPLATE, channel, item))
                 .orElse(null);
+    }
+
+    private void sleep(long timeout) {
+        try {
+            Thread.sleep(timeout);
+        } catch (InterruptedException e) {
+            log.warn("Thread sleep was interrupted!", e);
+        }
     }
 
     @Override
