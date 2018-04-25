@@ -56,9 +56,9 @@ public class RedisClientTemplate<R, V> extends StringRedisTemplate implements Cl
         log.info(String.format("Redis client is going to send message\n   Request channel: %s\n   Response channel: %s", requestChannel, responseChannel));
 
         RedisRequest<V> request = RedisRequest.<V>builder()
-                .requestId(requestId)
+                .request_id(requestId)
                 .body(value)
-                .expireTime(LocalDateTime.now().plusSeconds(properties.getTimeout()))
+                .expire_time(LocalDateTime.now().plusSeconds(properties.getTimeout()))
                 .build();
         opsForList().leftPush(requestChannel, objectMapper.writeValueAsString(request));
         String response = opsForList().rightPop(responseChannel, properties.getTimeout(), TimeUnit.SECONDS);
@@ -147,7 +147,7 @@ public class RedisClientTemplate<R, V> extends StringRedisTemplate implements Cl
                 .key(ResponseKey.OK)
                 .body(result)
                 .build();
-        String responseChannel = String.format(RESPONSE_TEMPLATE, channel, message.getRequestId());
+        String responseChannel = String.format(RESPONSE_TEMPLATE, channel, message.getRequest_id());
         log.info(String.format("Redis client is going to send response: \nchannel = %s", responseChannel));
         opsForList().rightPush(responseChannel, objectMapper.writeValueAsString(response));
     }
@@ -162,7 +162,7 @@ public class RedisClientTemplate<R, V> extends StringRedisTemplate implements Cl
 
     private static String makeResponseChannel(String channel, RedisRequest message) {
         return Optional.ofNullable(message)
-                .map(RedisRequest::getRequestId)
+                .map(RedisRequest::getRequest_id)
                 .map(item -> String.format(RESPONSE_TEMPLATE, channel, item))
                 .orElse(null);
     }
