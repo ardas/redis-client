@@ -3,9 +3,11 @@ package ua.ardas.redis.client;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JavaType;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.lettuce.core.RedisCommandInterruptedException;
 import lombok.extern.apachecommons.CommonsLog;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
+import org.springframework.dao.QueryTimeoutException;
 import org.springframework.data.redis.RedisSystemException;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -83,22 +85,22 @@ public class RedisClientTemplate<R, V> extends StringRedisTemplate implements Cl
         }
         Future<Object> future = executorService.submit(() -> {
             while (Thread.currentThread().isAlive()) {
-                RedisRequest<V> message;
+                RedisRequest<V> message = null;
                 try {
                     message = waitMessage(listenChannel, type);
-                } catch (RedisSystemException e) {
-                    log.error("Something wrong!", e);
-                    continue;
-                }
-                if (message.isExpired()) {
-                    continue;
-                }
-                try {
+                    if (message.isExpired()) {
+                        continue;
+                    }
                     T result = callback.apply(message.getBody());
                     if (message.isExpired()) {
                         continue;
                     }
                     sendSuccessResponse(channel, result, message);
+                } catch (RedisCommandInterruptedException e) {
+                    log.error("Redis listener was interrupted!", e);
+                    return null;
+                } catch (QueryTimeoutException e) {
+                    log.warn("Don't have any message!");
                 } catch (Exception e) {
                     log.error("Something wrong!", e);
                     sendRequestException(channel, message, ResponseKey.INTERNAL_ERROR, e);
@@ -133,10 +135,15 @@ public class RedisClientTemplate<R, V> extends StringRedisTemplate implements Cl
     }
 
     private RedisRequest<V> waitMessage(String channel, Class<V> type) throws IOException {
-        while (getConnectionFactory().getConnection().isClosed()) {
-            sleep(1000);
+        String body;
+        try {
+            while (getConnectionFactory().getConnection().isClosed()) {
+                sleep(1000);
+            }
+            body = opsForList().leftPop(channel, 0, TimeUnit.MILLISECONDS);
+        } catch (IllegalStateException | RedisSystemException e) {
+            throw new RedisCommandInterruptedException(e.getCause());
         }
-        String body = opsForList().leftPop(channel, 0, TimeUnit.MILLISECONDS);
         log.info(String.format("Receive message: channel = %s", channel));
         JavaType javaType = objectMapper.getTypeFactory().constructParametricType(RedisRequest.class, type);
         return objectMapper.readValue(body, javaType);

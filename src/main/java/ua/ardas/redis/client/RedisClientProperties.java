@@ -7,6 +7,6 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "redis.client")
 public class RedisClientProperties {
 
-    private int timeout = 1000;
+    private int timeout = 1;
     private int threadPool = 5;
 }
