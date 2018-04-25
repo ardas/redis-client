@@ -19,16 +19,16 @@ import java.util.UUID;
 @AllArgsConstructor
 public class RedisRequest<T> {
 
-    private UUID requestId;
+    private UUID request_id;
 
     @JsonSerialize(using = LocalDateTimeSerializer.class)
     @JsonDeserialize(using = LocalDateTimeDeserializer.class)
-    private LocalDateTime expireTime;
+    private LocalDateTime expire_time;
 
     private T body;
 
     @JsonIgnore
     public boolean isExpired() {
-        return LocalDateTime.now().isAfter(expireTime) || LocalDateTime.now().isEqual(expireTime);
+        return LocalDateTime.now().isAfter(expire_time) || LocalDateTime.now().isEqual(expire_time);
     }
 }
