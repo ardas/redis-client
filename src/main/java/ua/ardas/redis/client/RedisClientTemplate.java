@@ -62,7 +62,6 @@ public class RedisClientTemplate<R, V> extends StringRedisTemplate implements Cl
                 .build();
         opsForList().leftPush(requestChannel, objectMapper.writeValueAsString(request));
         String response = opsForList().rightPop(responseChannel, properties.getTimeout(), TimeUnit.SECONDS);
-        log.info(String.format("Redis client message: %s", response));
 
         if (StringUtils.isBlank(response)) {
             return RedisResponse.<R>builder()
@@ -138,7 +137,7 @@ public class RedisClientTemplate<R, V> extends StringRedisTemplate implements Cl
             sleep(1000);
         }
         String body = opsForList().leftPop(channel, 0, TimeUnit.MILLISECONDS);
-        log.info(String.format("Receive message: channel = %s   body = %s", channel, body));
+        log.info(String.format("Receive message: channel = %s", channel));
         JavaType javaType = objectMapper.getTypeFactory().constructParametricType(RedisRequest.class, type);
         return objectMapper.readValue(body, javaType);
     }
@@ -149,7 +148,7 @@ public class RedisClientTemplate<R, V> extends StringRedisTemplate implements Cl
                 .body(result)
                 .build();
         String responseChannel = String.format(RESPONSE_TEMPLATE, channel, message.getRequestId());
-        log.info(String.format("Redis client is going to send response: \nchannel = %s  \nentity = %s", responseChannel, response));
+        log.info(String.format("Redis client is going to send response: \nchannel = %s", responseChannel));
         opsForList().rightPush(responseChannel, objectMapper.writeValueAsString(response));
     }
 
