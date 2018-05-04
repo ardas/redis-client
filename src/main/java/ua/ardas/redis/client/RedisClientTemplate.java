@@ -19,10 +19,7 @@ import ua.ardas.redis.client.dto.ResponseKey;
 import java.io.Closeable;
 import java.io.IOException;
 import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -60,7 +57,7 @@ public class RedisClientTemplate<R, V> extends StringRedisTemplate implements Cl
         RedisRequest<V> request = RedisRequest.<V>builder()
                 .request_id(requestId)
                 .body(value)
-                .expire_time(LocalDateTime.now().plusSeconds(properties.getTimeout()))
+                .expire_time(new Date().getTime() + properties.getTimeout() * 1000)
                 .build();
         opsForList().leftPush(requestChannel, objectMapper.writeValueAsString(request));
         String response = opsForList().rightPop(responseChannel, properties.getTimeout(), TimeUnit.SECONDS);
@@ -89,10 +86,12 @@ public class RedisClientTemplate<R, V> extends StringRedisTemplate implements Cl
                 try {
                     message = waitMessage(listenChannel, type);
                     if (message.isExpired()) {
+                        log.warn(String.format("message.isExpired on %s %s", message.getExpire_time(), message.getBody()));
                         continue;
                     }
                     T result = callback.apply(message.getBody());
                     if (message.isExpired()) {
+                        log.warn(String.format("message.isExpired on %s %s", message.getExpire_time(), message.getBody()));
                         continue;
                     }
                     sendSuccessResponse(channel, result, message);
@@ -106,6 +105,7 @@ public class RedisClientTemplate<R, V> extends StringRedisTemplate implements Cl
                     sendRequestException(channel, message, ResponseKey.INTERNAL_ERROR, e);
                 }
             }
+            log.warn("exit from redis read cycle");
             return null;
         });
         activeListeners.put(listenChannel, future);
