@@ -22,7 +22,7 @@ import java.util.concurrent.TimeUnit;
 public class RedisClientApplicationTests {
 
     @Autowired
-    private RedisClientTemplate<String, String> clientTemplate;
+    private RedisClientTemplate clientTemplate;
 
     @Autowired
     private RedisClientProperties properties;

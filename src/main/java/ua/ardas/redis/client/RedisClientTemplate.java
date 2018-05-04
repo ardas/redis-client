@@ -18,8 +18,11 @@ import ua.ardas.redis.client.dto.ResponseKey;
 
 import java.io.Closeable;
 import java.io.IOException;
-import java.time.LocalDateTime;
-import java.util.*;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -30,7 +33,7 @@ import java.util.function.Function;
 @CommonsLog
 @Component("redisClientTemplate")
 @ConditionalOnClass({ObjectMapper.class})
-public class RedisClientTemplate<R, V> extends StringRedisTemplate implements Closeable {
+public class RedisClientTemplate extends StringRedisTemplate implements Closeable {
 
     private static final String REQUEST_TEMPLATE = "%s-request";
     private static final String RESPONSE_TEMPLATE = "%s-%s-response";
@@ -48,7 +51,7 @@ public class RedisClientTemplate<R, V> extends StringRedisTemplate implements Cl
         this.executorService = Executors.newFixedThreadPool(properties.getThreadPool());
     }
 
-    public RedisResponse<R> send(String channel, V value, Class<R> type) throws IOException {
+    public <R, V> RedisResponse<R> send(String channel, V value, Class<R> type) throws IOException {
         UUID requestId = UUID.randomUUID();
         String requestChannel = makeRequestChannel(channel);
         String responseChannel = makeResponseChannel(channel, requestId);
@@ -74,7 +77,7 @@ public class RedisClientTemplate<R, V> extends StringRedisTemplate implements Cl
         return objectMapper.readValue(response, javaType);
     }
 
-    public <T> void listenChannel(String channel, Function<V, T> callback, Class<V> type) {
+    public <T, V> void listenChannel(String channel, Function<V, T> callback, Class<V> type) {
         String listenChannel = String.format(REQUEST_TEMPLATE, channel);
         log.info(String.format("Start listen channel %s", listenChannel));
         if (activeListeners.containsKey(listenChannel)) {
@@ -111,7 +114,7 @@ public class RedisClientTemplate<R, V> extends StringRedisTemplate implements Cl
         activeListeners.put(listenChannel, future);
     }
 
-    private <T> void sendRequestException(String channel, RedisRequest<V> message, ResponseKey key, Exception e) {
+    private <T, V> void sendRequestException(String channel, RedisRequest<V> message, ResponseKey key, Exception e) {
         String responseChannel = makeResponseChannel(channel, message);
 
         if (StringUtils.isNotBlank(responseChannel)) {
@@ -127,14 +130,14 @@ public class RedisClientTemplate<R, V> extends StringRedisTemplate implements Cl
         }
     }
 
-    public void listenChannel(String channel, Consumer<V> callback, Class<V> type) {
+    public <V> void listenChannel(String channel, Consumer<V> callback, Class<V> type) {
         listenChannel(channel, item -> {
             callback.accept(item);
             return null;
         }, type);
     }
 
-    private RedisRequest<V> waitMessage(String channel, Class<V> type) throws IOException {
+    private <V> RedisRequest<V> waitMessage(String channel, Class<V> type) throws IOException {
         String body;
         try {
             while (getConnectionFactory().getConnection().isClosed()) {
@@ -149,7 +152,7 @@ public class RedisClientTemplate<R, V> extends StringRedisTemplate implements Cl
         return objectMapper.readValue(body, javaType);
     }
 
-    private <T> void sendSuccessResponse(String channel, T result, RedisRequest<V> message) throws JsonProcessingException {
+    private <T, V> void sendSuccessResponse(String channel, T result, RedisRequest<V> message) throws JsonProcessingException {
         RedisResponse<T> response = RedisResponse.<T>builder()
                 .key(ResponseKey.OK)
                 .body(result)
