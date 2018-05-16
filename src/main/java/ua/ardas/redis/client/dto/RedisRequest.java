@@ -11,6 +11,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.Date;
 import java.util.UUID;
 
 @Data
@@ -21,14 +22,12 @@ public class RedisRequest<T> {
 
     private UUID request_id;
 
-    @JsonSerialize(using = LocalDateTimeSerializer.class)
-    @JsonDeserialize(using = LocalDateTimeDeserializer.class)
-    private LocalDateTime expire_time;
+    private Long expire_time;
 
     private T body;
 
     @JsonIgnore
     public boolean isExpired() {
-        return LocalDateTime.now().isAfter(expire_time) || LocalDateTime.now().isEqual(expire_time);
+        return expire_time < new Date().getTime();
     }
 }

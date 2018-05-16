@@ -4,7 +4,7 @@
 
     <groupId>ua.ardas</groupId>
     <artifactId>redis-client</artifactId>
-    <version>0.1.7-SNAPSHOT</version>
+    <version>0.1.9-SNAPSHOT</version>
     <packaging>jar</packaging>
 
     <name>redis-client</name>
