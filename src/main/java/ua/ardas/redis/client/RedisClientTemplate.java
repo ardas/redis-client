@@ -102,7 +102,7 @@ public class RedisClientTemplate extends StringRedisTemplate implements Closeabl
                     log.error("Redis listener was interrupted!", e);
                     return null;
                 } catch (QueryTimeoutException e) {
-                    log.warn("Don't have any message!");
+                    log.debug("Don't have any message!");
                 } catch (Exception e) {
                     log.error("Something wrong!", e);
                     sendRequestException(channel, message, ResponseKey.INTERNAL_ERROR, e);
