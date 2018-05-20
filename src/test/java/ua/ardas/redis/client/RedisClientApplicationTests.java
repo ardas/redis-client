@@ -1,6 +1,8 @@
 package ua.ardas.redis.client;
 
+import org.junit.After;
 import org.junit.Assert;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,6 +30,11 @@ public class RedisClientApplicationTests {
     private RedisClientProperties properties;
 
     public static final String TEST_CHANNEL = "TEST_CHANNEL";
+
+    @After
+    public void prepare() {
+        clientTemplate.getConnectionFactory().getConnection().flushAll();
+    }
 
     @Test
     public void testSendRedisRequestAndGetResponse() throws IOException {
@@ -79,8 +86,33 @@ public class RedisClientApplicationTests {
             Assert.fail("Listener callback has not been invoke!");
         }
 
-        Set<String> keys = clientTemplate.keys("");
+        Set<String> keys = clientTemplate.keys("*");
         Assert.assertEquals(0, keys.size());
+    }
+
+    @Test
+    public void testListenerStop() throws IOException, InterruptedException {
+        CountDownLatch latch = new CountDownLatch(1);
+        clientTemplate.listenChannel(TEST_CHANNEL, item -> {
+            Assert.assertEquals("PING", item);
+            latch.countDown();
+            return "PONG";
+        }, String.class);
+
+        clientTemplate.stopListenChannel(TEST_CHANNEL);
+
+        RedisResponse<String> message = clientTemplate.send(TEST_CHANNEL, "PING", String.class);
+
+        Assert.assertEquals(ResponseKey.TIMEOUT, message.getKey());
+        Assert.assertTrue(message.isFailure());
+
+        latch.await(properties.getTimeout() + 2, TimeUnit.SECONDS);
+        if (latch.getCount() != 1) {
+            Assert.fail("Listener callback has been invoke!");
+        }
+
+        Set<String> keys = clientTemplate.keys("*");
+        Assert.assertEquals(1, keys.size());
     }
 
     private void sleep() {

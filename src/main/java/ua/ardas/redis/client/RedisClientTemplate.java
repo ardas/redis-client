@@ -78,11 +78,9 @@ public class RedisClientTemplate extends StringRedisTemplate implements Closeabl
     }
 
     public <T, V> void listenChannel(String channel, Function<V, T> callback, Class<V> type) {
-        String listenChannel = String.format(REQUEST_TEMPLATE, channel);
+        String listenChannel = makeRequestChannel(channel);
         log.info(String.format("Start listen channel %s", listenChannel));
-        if (activeListeners.containsKey(listenChannel)) {
-            activeListeners.get(listenChannel).cancel(true);
-        }
+        stopListenChannel(channel);
         Future<Object> future = executorService.submit(() -> {
             while (Thread.currentThread().isAlive()) {
                 RedisRequest<V> message = null;
@@ -99,7 +97,7 @@ public class RedisClientTemplate extends StringRedisTemplate implements Closeabl
                     }
                     sendSuccessResponse(channel, result, message);
                 } catch (RedisCommandInterruptedException e) {
-                    log.error("Redis listener was interrupted!", e);
+                    log.warn("Redis listener was interrupted!");
                     return null;
                 } catch (QueryTimeoutException e) {
                     log.debug("Don't have any message!");
@@ -112,6 +110,13 @@ public class RedisClientTemplate extends StringRedisTemplate implements Closeabl
             return null;
         });
         activeListeners.put(listenChannel, future);
+    }
+
+    public void stopListenChannel(String channel) {
+        String listenChannel = makeRequestChannel(channel);
+        if (activeListeners.containsKey(listenChannel)) {
+            activeListeners.get(listenChannel).cancel(true);
+        }
     }
 
     private <T, V> void sendRequestException(String channel, RedisRequest<V> message, ResponseKey key, Exception e) {
