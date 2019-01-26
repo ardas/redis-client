@@ -6,23 +6,17 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.lettuce.core.RedisCommandInterruptedException;
 import lombok.extern.apachecommons.CommonsLog;
 import org.apache.commons.lang3.StringUtils;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.dao.QueryTimeoutException;
 import org.springframework.data.redis.RedisSystemException;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.stereotype.Component;
 import ua.ardas.redis.client.dto.RedisRequest;
 import ua.ardas.redis.client.dto.RedisResponse;
 import ua.ardas.redis.client.dto.ResponseKey;
 
 import java.io.Closeable;
 import java.io.IOException;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -31,8 +25,6 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 
 @CommonsLog
-@Component("redisClientTemplate")
-@ConditionalOnClass({ObjectMapper.class})
 public class RedisClientTemplate extends StringRedisTemplate implements Closeable {
 
     private static final String REQUEST_TEMPLATE = "%s-request";

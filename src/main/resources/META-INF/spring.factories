@@ -1,1 +1,1 @@
-org.springframework.boot.autoconfigure.EnableAutoConfiguration=ua.ardas.redis.client.RedisClientAutoConfiguration,ua.ardas.redis.client.RedisClientTemplate
+org.springframework.boot.autoconfigure.EnableAutoConfiguration=ua.ardas.redis.client.RedisClientAutoConfiguration
